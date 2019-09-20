@@ -34,12 +34,10 @@ local ngx_update_time      = ngx.update_time
 local ngx_now              = ngx.now
 
 local IAM_CREDENTIALS_CACHE_KEY = "plugin.liamp.iam_role_temp_creds"
-local LOG_PREFIX = "[liamp] "
 
 
 local server_header_value
 local server_header_name
-local response_bad_gateway
 local AWS_PORT = 443
 
 
