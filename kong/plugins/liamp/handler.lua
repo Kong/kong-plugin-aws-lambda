@@ -336,6 +336,6 @@ function AWSLambdaHandler:access(conf)
 end
 
 AWSLambdaHandler.PRIORITY = 750
-AWSLambdaHandler.VERSION = "0.1.1"
+AWSLambdaHandler.VERSION = "0.2.0"
 
 return AWSLambdaHandler

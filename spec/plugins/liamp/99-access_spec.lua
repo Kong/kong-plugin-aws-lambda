@@ -692,11 +692,7 @@ for _, strategy in helpers.each_strategy() do
       })
 
       if server_tokens then
-        -- post-0.14
         assert.equal(server_tokens, res.headers["Via"])
-      else
-        -- pre-0.14
-        assert.equal("kong/", res.headers["Via"]:sub(1,5))
       end
     end)
 
