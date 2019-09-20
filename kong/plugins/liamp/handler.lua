@@ -130,17 +130,6 @@ end
 
 
 function AWSLambdaHandler:access(conf)
-  --print("0000000000")
-  --local client = assert(http.new())
-  --print("11111111")
-  --client:set_timeout(60000)
-  --print("22222222")
-  --ok, err = assert(client:connect("lambda.us-east-1.amazonaws.com", 10001))
-  --print("3333333")
-  --print(ok)
-  --print(err)
-  --os.exit(1)
-
   local upstream_body = kong.table.new(0, 6)
   local var = ngx.var
 
