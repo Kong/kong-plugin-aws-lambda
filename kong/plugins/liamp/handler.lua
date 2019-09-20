@@ -216,7 +216,7 @@ function AWSLambdaHandler:access(conf)
 
   if not conf.aws_key then
     -- no credentials provided, so try the IAM metadata service
-    local iam_role_credentials, err = singletons.cache:get(
+    local iam_role_credentials, err = kong.cache:get(
       IAM_CREDENTIALS_CACHE_KEY,
       nil,
       fetch_credentials
