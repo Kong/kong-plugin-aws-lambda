@@ -140,5 +140,7 @@ If you do not provide `aws.key` or `aws.secret`, the plugin uses an IAM role inh
 
 First, the plugin will try ECS metadata to get the role. If no ECS metadata is available, the plugin will fall back on EC2 metadata.
 
+This plugin is included in Kong 2.0 and higher. Earlier versions of kong use [this](https://github.com/Kong/kong/tree/master/kong/plugins/aws-lambda) earlier version of the plugin.
+
 [badge-travis-image]: https://travis-ci.com/Kong/kong-plugin-aws-lambda.svg?branch=master
 [badge-travis-url]: https://travis-ci.com/Kong/kong-plugin-aws-lambda
