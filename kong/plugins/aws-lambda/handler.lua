@@ -6,6 +6,7 @@ local http = require "resty.http"
 local cjson = require "cjson.safe"
 local meta = require "kong.meta"
 local constants = require "kong.constants"
+local BasePlugin = require "kong.plugins.base_plugin"
 
 
 local VIA_HEADER = constants.HEADERS.VIA
@@ -104,10 +105,16 @@ local function extract_proxy_response(content)
 end
 
 
-local AWSLambdaHandler = {}
+local AWSLambdaHandler = BasePlugin:extend()
 
+
+function AWSLambdaHandler:new()
+  AWSLambdaHandler.super.new(self, "aws-lambda")
+end
 
 function AWSLambdaHandler:access(conf)
+  AWSLambdaHandler.super.access(self)
+
   local upstream_body = kong.table.new(0, 6)
   local var = ngx.var
 

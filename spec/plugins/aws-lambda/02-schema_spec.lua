@@ -64,7 +64,7 @@ describe("Plugin: AWS Lambda (schema)", function()
       function_name = "my-function"
     }, schema_def)
 
-    assert.equal("all or none of these fields must be set: 'config.aws_key', 'config.aws_secret'", err["@entity"][1])
+    assert.equal("All or none of 'config.aws_key', 'config.aws_secret' must be set. Only 'config.aws_secret' found", err["@entity"][1])
     assert.falsy(ok)
   end)
 
@@ -75,7 +75,7 @@ describe("Plugin: AWS Lambda (schema)", function()
       function_name = "my-function"
     }, schema_def)
 
-    assert.equal("all or none of these fields must be set: 'config.aws_key', 'config.aws_secret'", err["@entity"][1])
+    assert.equal("All or none of 'config.aws_key', 'config.aws_secret' must be set. Only 'config.aws_key' found", err["@entity"][1])
     assert.falsy(ok)
   end)
 
@@ -86,7 +86,7 @@ describe("Plugin: AWS Lambda (schema)", function()
       function_name = "my-function"
     }, schema_def)
 
-    assert.equal("all or none of these fields must be set: 'config.proxy_scheme', 'config.proxy_url'", err["@entity"][1])
+    assert.equal("All or none of 'config.proxy_scheme', 'config.proxy_url' must be set. Only 'config.proxy_url' found", err["@entity"][1])
     assert.falsy(ok)
   end)
 
