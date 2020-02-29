@@ -136,7 +136,13 @@ function AWSLambdaHandler:access(conf)
     end
 
     if conf.forward_request_uri then
-      upstream_body.request_uri = kong.request.get_path_with_query()
+      local path = kong.request.get_path()
+      local query = kong.request.get_raw_query()
+      if query ~= "" then
+        upstream_body.request_uri = path .. "?" .. query
+      else
+        upstream_body.request_uri = path
+      end
       upstream_body.request_uri_args = kong.request.get_query()
     end
 
