@@ -36,6 +36,7 @@ local tonumber             = tonumber
 local type                 = type
 local fmt                  = string.format
 local ngx_encode_base64    = ngx.encode_base64
+local ngx_decode_base64    = ngx.decode_base64
 local ngx_update_time      = ngx.update_time
 local ngx_now              = ngx.now
 local kong                 = kong
@@ -94,12 +95,14 @@ local function extract_proxy_response(content)
 
   local headers = serialized_content.headers or {}
   local body = serialized_content.body or ""
+  local isBase64Encoded = serialized_content.isBase64Encoded or false
   headers["Content-Length"] = #body
 
   return {
     status_code = tonumber(serialized_content.statusCode),
     body = body,
     headers = headers,
+    isBase64Encoded = isBase64Encoded
   }
 end
 
@@ -282,7 +285,11 @@ function AWSLambdaHandler:access(conf)
 
     status = proxy_response.status_code
     headers = kong.table.merge(headers, proxy_response.headers)
-    content = proxy_response.body
+    if proxy_response.isBase64Encoded then
+      content = ngx_decode_base64(proxy_response.body)
+    else
+      content = proxy_response.body
+    end
   end
 
   if not status then
