@@ -9,37 +9,31 @@ describe("[AWS Lambda] request-util", function()
   local body_data_filepath
 
 
-  function mock_read_body()
-    body_data = mock_request.body
-
-    -- if the request body is greater than the client buffer size, buffer
-    -- it to disk and set the filepath
-    if #body_data > default_client_body_buffer_size then
-      body_data_filepath = os.tmpname()
-      local f = io.open(body_data_filepath, "w")
-      f:write(body_data)
-      f:close()
-      body_data = nil
-    end
-  end
-
-  -- will be nil if request wasn't large enough to buffer
-  function mock_get_body_file()
-    return body_data_filepath
-  end
-
-  -- will be nil if request was large and required buffering
-  function mock_get_body_data()
-    return body_data
-  end
-
   setup(function()
     old_ngx = ngx
     _G.ngx = setmetatable({
       req = {
-        read_body = mock_read_body,
-        get_body_data = mock_get_body_data,
-        get_body_file = mock_get_body_file
+        read_body = function()
+          body_data = mock_request.body
+
+          -- if the request body is greater than the client buffer size, buffer
+          -- it to disk and set the filepath
+          if #body_data > default_client_body_buffer_size then
+            body_data_filepath = os.tmpname()
+            local f = io.open(body_data_filepath, "w")
+            f:write(body_data)
+            f:close()
+            body_data = nil
+          end
+        end,
+        get_body_data = function()
+          -- will be nil if request was large and required buffering
+          return body_data
+        end,
+        get_body_file = function()
+          -- will be nil if request wasn't large enough to buffer
+          return body_data_filepath
+        end
       },
       log = function() end,
     }, {
