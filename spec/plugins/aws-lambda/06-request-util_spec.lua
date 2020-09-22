@@ -1,10 +1,11 @@
+local request_util = require "kong.plugins.aws-lambda.request-util"
 local default_client_body_buffer_size = 1024 * 8
 
 describe("[AWS Lambda] request-util", function()
 
   local mock_request
   local old_ngx
-  local req_read_body
+  local request_util
   local body_data
   local body_data_filepath
 
@@ -45,7 +46,7 @@ describe("[AWS Lambda] request-util", function()
 
     -- always reload
     package.loaded["kong.plugins.aws-lambda.request-util"] = nil
-    req_read_body = require "kong.plugins.aws-lambda.request-util"
+    request_util = require "kong.plugins.aws-lambda.request-util"
   end)
 
 
@@ -73,7 +74,7 @@ describe("[AWS Lambda] request-util", function()
       }
       spy.on(ngx.req, "read_body")
       spy.on(ngx.req, "get_body_file")
-      local out = req_read_body(config)
+      local out = request_util.read_request_body(config.skip_large_bodies)
       assert.spy(ngx.req.read_body).was.called(1)
       -- the payload was buffered to disk, but won't be read because we're skipping
       assert.spy(ngx.req.get_body_file).was.called(1)
@@ -86,7 +87,7 @@ describe("[AWS Lambda] request-util", function()
       }
       spy.on(ngx.req, "read_body")
       spy.on(ngx.req, "get_body_file")
-      local out = req_read_body(config)
+      local out = request_util.read_request_body(config.skip_large_bodies)
       assert.spy(ngx.req.read_body).was.called(1)
       assert.spy(ngx.req.get_body_file).was.called(0)
       assert.is_not_nil(out)
@@ -102,7 +103,7 @@ describe("[AWS Lambda] request-util", function()
       }
       spy.on(ngx.req, "read_body")
       spy.on(ngx.req, "get_body_file")
-      local out = req_read_body(config)
+      local out = request_util.read_request_body(config.skip_large_bodies)
       assert.spy(ngx.req.read_body).was.called(1)
       -- this payload was buffered to disk, and was read
       assert.spy(ngx.req.get_body_file).was.called(1)
@@ -115,7 +116,7 @@ describe("[AWS Lambda] request-util", function()
       }
       spy.on(ngx.req, "read_body")
       spy.on(ngx.req, "get_body_file")
-      local out = req_read_body(config)
+      local out = request_util.read_request_body(config.skip_large_bodies)
       assert.spy(ngx.req.read_body).was.called(1)
       assert.spy(ngx.req.get_body_file).was.called(0)
       assert.is_not_nil(out)

@@ -2,7 +2,7 @@
 -- format as described here:
 -- https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
 
-local req_read_body = require "kong.plugins.aws-lambda.request-util"
+local request_util = require "kong.plugins.aws-lambda.request-util"
 
 local EMPTY = {}
 
@@ -54,8 +54,9 @@ return function(ctx, config)
 
   -- prepare body
   local body, isBase64Encoded
+  local skip_large_bodies = config and config.skip_large_bodies or true
   do
-    body = req_read_body(config)
+    body = request_util.read_request_body(skip_large_bodies)
     if body ~= "" then
       body = ngx_encode_base64(body)
       isBase64Encoded = true
