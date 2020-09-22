@@ -96,13 +96,16 @@ local function extract_proxy_response(content)
   local headers = serialized_content.headers or {}
   local body = serialized_content.body or ""
   local isBase64Encoded = serialized_content.isBase64Encoded or false
+  if isBase64Encoded then
+    body = ngx_decode_base64(body)
+  end
+
   headers["Content-Length"] = #body
 
   return {
     status_code = tonumber(serialized_content.statusCode),
     body = body,
     headers = headers,
-    isBase64Encoded = isBase64Encoded
   }
 end
 
@@ -285,11 +288,7 @@ function AWSLambdaHandler:access(conf)
 
     status = proxy_response.status_code
     headers = kong.table.merge(headers, proxy_response.headers)
-    if proxy_response.isBase64Encoded then
-      content = ngx_decode_base64(proxy_response.body)
-    else
-      content = proxy_response.body
-    end
+    content = proxy_response.body
   end
 
   if not status then

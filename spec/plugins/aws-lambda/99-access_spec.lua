@@ -8,6 +8,7 @@ local TEST_CONF = helpers.test_conf
 local server_tokens = meta._SERVER_TOKENS
 local null = ngx.null
 
+
 local fixtures = {
   dns_mock = helpers.dns_mock.new(),
   http_mock = {
