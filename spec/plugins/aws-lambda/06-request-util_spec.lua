@@ -1,4 +1,3 @@
-local request_util = require "kong.plugins.aws-lambda.request-util"
 local default_client_body_buffer_size = 1024 * 8
 
 describe("[AWS Lambda] request-util", function()
