@@ -29,6 +29,10 @@ return {
           required = true,
           default = 60000,
         } },
+        { aws_role_session_name = {
+          type = "string",
+          encrypted = ENCRYPTED,
+        } },
         { aws_key = {
           type = "string",
           encrypted = ENCRYPTED,

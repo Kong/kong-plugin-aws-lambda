@@ -14,22 +14,12 @@ local VIA_HEADER_VALUE = meta._NAME .. "/" .. meta._VERSION
 local IAM_CREDENTIALS_CACHE_KEY = "plugin.aws-lambda.iam_role_temp_creds"
 local AWS_PORT = 443
 
-
-local fetch_credentials
-do
-  local credential_sources = {
-    require "kong.plugins.aws-lambda.iam-ecs-credentials",
-    -- The EC2 one will always return `configured == true`, so must be the last!
-    require "kong.plugins.aws-lambda.iam-ec2-credentials",
-  }
-
-  for _, credential_source in ipairs(credential_sources) do
-    if credential_source.configured then
-      fetch_credentials = credential_source.fetchCredentials
-      break
-    end
-  end
-end
+local credential_providers = {
+  require "kong.plugins.aws-lambda.iam-web-identity-token-credentials",
+  require "kong.plugins.aws-lambda.iam-ecs-credentials",
+  -- The EC2 one will always return a provider, so must be the last!
+  require "kong.plugins.aws-lambda.iam-ec2-credentials",
+}
 
 
 local tostring             = tostring
@@ -194,11 +184,21 @@ function AWSLambdaHandler:access(conf)
   }
 
   if not conf.aws_key then
+    -- retrieve credentials using the first well configured providers
+    local fetched_credentials
+    for _, credential_provider in ipairs(credential_providers) do
+      local credential_provider_instance = credential_provider.get_provider(conf)
+      if credential_provider_instance then
+        fetched_credentials = credential_provider_instance.fetch_credentials()
+        break
+      end
+    end
+
     -- no credentials provided, so try the IAM metadata service
     local iam_role_credentials = kong.cache:get(
       IAM_CREDENTIALS_CACHE_KEY,
       nil,
-      fetch_credentials
+      fetched_credentials
     )
 
     if not iam_role_credentials then
