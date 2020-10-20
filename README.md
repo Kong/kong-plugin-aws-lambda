@@ -115,7 +115,8 @@ Here's a list of all the parameters which can be used in this plugin's configura
 | `consumer_id` || The id of the Consumer which this plugin will target.
 |`config.aws_key` <br>*semi-optional* || The AWS key credential to be used when invoking the function. This value is required if `aws_secret` is defined.
 |`config.aws_secret` <br>*semi-optional* ||The AWS secret credential to be used when invoking the function. This value is required if `aws_key` is defined.
-|`config.aws_region` <br>*semi-optional* || The AWS region where the Lambda function is located. The plugin *does not* attempt to validate the provided region name; an invalid region name will result in a DNS name resolution error. This value cannot be specified if `host` is set.
+|`config.aws_region` <br>*semi-optional* || The AWS region where the Lambda function is located. The plugin *does not* attempt to validate the provided region name; an invalid region name will result in a DNS name resolution error. This value cannot be specified if `host` is set. This value is used if the value `aws_key` is not defined. It's better to define the `aws_region` to reduce the latency when calling STS.
+|`config.aws_role_session_name` <br>*semi-optional* || The session name of the AWS role is used by EKS hosting to assume a role other than the one defined in the `AWS_WEB_IDENTITY_TOKEN_FILE` system variable provided by the service account.
 |`config.function_name` || The AWS Lambda function name to invoke.
 |`config.timeout`| `60000` | Timeout protection in milliseconds when invoking the function.
 |`config.keepalive`| `60000` | Max idle timeout in milliseconds when invoking the function.

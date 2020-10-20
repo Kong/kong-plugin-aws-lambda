@@ -2,13 +2,15 @@ require "spec.helpers"
 
 describe("[AWS Lambda] iam-ec2", function()
 
-  local fetch_ec2, http_responses
+  local http_responses
+  local ec2_provider
 
   before_each(function()
     package.loaded["kong.plugins.aws-lambda.iam-ec2-credentials"] = nil
     package.loaded["resty.http"] = nil
-    local http = require "resty.http"
+    ec2_provider = require("kong.plugins.aws-lambda.iam-ec2-credentials")
     -- mock the http module
+    local http = require "resty.http"
     http.new = function()
       return {
         set_timeout = function() end,
@@ -27,13 +29,13 @@ describe("[AWS Lambda] iam-ec2", function()
         end,
       }
     end
-    fetch_ec2 = require("kong.plugins.aws-lambda.iam-ec2-credentials").fetchCredentials
   end)
 
   after_each(function()
   end)
 
   it("should fetch credentials from metadata service", function()
+    -- GIVEN
     http_responses = {
       "EC2_role",
       [[
@@ -49,8 +51,12 @@ describe("[AWS Lambda] iam-ec2", function()
 ]]
     }
 
-    local iam_role_credentials, err = fetch_ec2()
+    local ec2_provider_instance = ec2_provider.get_provider()
 
+    -- WHEN
+    local iam_role_credentials, err = ec2_provider_instance.fetch_credentials()
+
+    -- THEN
     assert.is_nil(err)
     assert.equal("the Access Key", iam_role_credentials.access_key)
     assert.equal("the Big Secret", iam_role_credentials.secret_key)
@@ -58,3 +64,4 @@ describe("[AWS Lambda] iam-ec2", function()
     assert.equal(1552424170, iam_role_credentials.expiration)
   end)
 end)
+
