@@ -29,10 +29,6 @@ return {
           required = true,
           default = 60000,
         } },
-        { aws_role_session_name = {
-          type = "string",
-          encrypted = ENCRYPTED,
-        } },
         { aws_key = {
           type = "string",
           encrypted = ENCRYPTED,
@@ -45,6 +41,14 @@ return {
         { function_name = {
           type = "string",
           required = true,
+        } },
+        { aws_role_session_name = {
+          type = "string",
+          encrypted = ENCRYPTED,
+        } },
+        { aws_cross_account_role = {
+          type = "string",
+          encrypted = ENCRYPTED,
         } },
         { qualifier = {
           type = "string",

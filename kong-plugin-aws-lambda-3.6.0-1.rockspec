@@ -1,10 +1,10 @@
 package = "kong-plugin-aws-lambda"
-version = "3.5.1-1"
+version = "3.6.0-1"
 
 supported_platforms = {"linux", "macosx"}
 source = {
   url = "git://github.com/kong/kong-plugin-aws-lambda",
-  tag = "3.5.1",
+  tag = "3.6.0",
 }
 
 description = {
@@ -22,7 +22,7 @@ build = {
   modules = {
     ["kong.plugins.aws-lambda.aws-serializer"]                      = "kong/plugins/aws-lambda/aws-serializer.lua",
     ["kong.plugins.aws-lambda.handler"]                             = "kong/plugins/aws-lambda/handler.lua",
-    ["kong.plugins.aws-lambda.iam-web-identity-token-credentials"]  = "kong/plugins/aws-lambda/iam-web-identity-token-credentials",
+    ["kong.plugins.aws-lambda.iam-web-identity-token-credentials"]  = "kong/plugins/aws-lambda/iam-web-identity-token-credentials.lua",
     ["kong.plugins.aws-lambda.iam-ec2-credentials"]                 = "kong/plugins/aws-lambda/iam-ec2-credentials.lua",
     ["kong.plugins.aws-lambda.iam-ecs-credentials"]                 = "kong/plugins/aws-lambda/iam-ecs-credentials.lua",
     ["kong.plugins.aws-lambda.schema"]                              = "kong/plugins/aws-lambda/schema.lua",

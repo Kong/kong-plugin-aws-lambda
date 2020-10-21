@@ -12,6 +12,10 @@
 - test rockspec; `luarocks install kong-plugin-aws-lambda`
 
 
+## aws-lambda 3.6.1 22-Oct-2020
+
+- feat: adding support to use service account role in EKS and also assume a give role
+
 ## aws-lambda 3.5.1 6-Okt-2020
 
 - fix: `skip_large_bodies` to honor config setting
