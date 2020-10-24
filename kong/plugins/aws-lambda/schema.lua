@@ -46,7 +46,7 @@ return {
           type = "string",
           encrypted = ENCRYPTED,
         } },
-        { aws_cross_account_role = {
+        { aws_assume_role_arn = {
           type = "string",
           encrypted = ENCRYPTED,
         } },

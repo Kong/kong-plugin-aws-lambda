@@ -4,33 +4,29 @@ local io = require "io"
 describe("[AWS Lambda] iam-web-identity-token-credentials", function()
 
   local old_getenv, old_io_open = os.getenv, io.open
-  local match = require("luassert.match")
-  local nb_request_call
+  local nb_request_uri_call
 
   -- MOCK FUNCTIONS
-  local function mock_http(connect_result, request_results)
-    local all_params = {}
-    local connect_spy = spy.new(function() return connect_result end)
-    local request_spy = spy.new(function(_, p2)
-      table.insert(all_params, p2)
+  local function mock_http(request_results)
+    local requests_params = {}
+    local request_uri_mock = function(_, uri_param, options_param)
+      nb_request_uri_call = nb_request_uri_call + 1
+      table.insert(requests_params, { uri_param, options_param })
       return {
         status = 200,
-        read_body = function()
-          nb_request_call = nb_request_call + 1
-          return request_results[nb_request_call]
-        end
-      } end)
+        body = request_results[nb_request_uri_call]
+      }
+    end
 
     package.loaded["resty.http"] = nil
     local http = require "resty.http"
     http.new = function() return {
       set_timeout = function() end,
-      connect = connect_spy,
-      request = request_spy,
+      request_uri = request_uri_mock,
       close = function() end
     } end
 
-    return connect_spy, request_spy, all_params
+    return requests_params
   end
 
   local function mock_ngx(duration)
@@ -57,11 +53,11 @@ describe("[AWS Lambda] iam-web-identity-token-credentials", function()
     -- need to remove variable information like date and Signature
     local static_sign1 = sign1:gsub("Signature=.+", ""):gsub("/%d%d%d%d%d%d%d%d/", "")
     local static_sign2 = sign2:gsub("Signature=.+", ""):gsub("/%d%d%d%d%d%d%d%d/", "")
-    assert.equals(static_sign1, static_sign2)
+    return static_sign1 == static_sign2
   end
 
   before_each(function()
-    nb_request_call = 0
+    nb_request_uri_call = 0
     package.loaded["kong.plugins.aws-lambda.iam-web-identity-token-credentials"] = nil
   end)
 
@@ -97,190 +93,201 @@ describe("[AWS Lambda] iam-web-identity-token-credentials", function()
   end)
 
 
-  it("should fetch credentials with region from web identity token service", function()
+  it("should fetch credentials without region from web identity token service", function()
     -- GIVEN
     local env_vars = {
       AWS_WEB_IDENTITY_TOKEN_FILE = "/var/run/secrets/eks.amazonaws.com/serviceaccount/token",
-      AWS_ROLE_ARN = "arn:aws:iam:111111111111:role/roleAssociatedToServiceAccount"
+      AWS_ROLE_ARN = "arn:aws:iam:111111111111:role/role-associate-to-service-account"
     }
     mock_getEnv(env_vars)
-    local config = {
-      aws_region = "eu-west-1",
-      aws_role_session_name = "my-custom-session-name"
-    }
-    -- token store un the file AWS_WEB_IDENTITY_TOKEN_FILE
-    local web_identity_token = "y87oGKPznh0D6bEQZTSCzyoCtL_8S07pLpr0"
+    local config = { }
+
+    -- token store in the the file AWS_WEB_IDENTITY_TOKEN_FILE
+    local web_identity_token = "secret_token_stored_in_file"
     mock_io(web_identity_token)
 
-    local sts_response = [[
-    {
-      "AssumedRoleUser": {
-        "AssumedRoleId": "EAZDC3:kong-role",
-        "Arn": "arn:aws:sts::123456789012:assumed-role/blv-kong-trust-role"
-      },
-      "Audience": "sts.amazonaws.com",
-      "Provider": "arn:aws:iam::123456789012:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/ZDJ32JRD",
-      "SubjectFromWebIdentityToken": "system:serviceaccount:namespace:serviceAccountName",
-      "Credentials": {
-        "SecretAccessKey": "Secret_Key",
-        "SessionToken": "Aws_Session_Token",
-        "Expiration": "2020-10-16T14:50:57Z",
-        "AccessKeyId": "Access_Key_Id"
+    local wit_from_sts_response = [[
+      {
+        "AssumeRoleWithWebIdentityResponse": {
+          "AssumeRoleWithWebIdentityResult": {
+            "AssumedRoleUser": {
+              "Arn": "arn:aws:sts::111111111111:assumed-role/role-associate-to-service-account",
+              "AssumedRoleId": "AROACLKWSDQRAOEXAMPLE:TestAR"
+            },
+            "Audience": "sts.amazonaws.com",
+            "Credentials": {
+              "AccessKeyId": "ASgeIAIOSFODNN7EXAMPLE",
+              "Expiration": 1603577714,
+              "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY",
+              "SessionToken": "AQoDYXdzEE0a8ANXXXXXXXXNO1ewxE5TijQyp+IEXAMPLE"
+            },
+            "PackedPolicySize": null,
+            "Provider": "arn:aws:iam::111111111111:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/EAZCZAERACAZE",
+            "SubjectFromWebIdentityToken": "amzn1.account.AF6RHO7KZU5XRVQJGXK6HB56KR2A"
+          },
+          "ResponseMetadata": {
+            "RequestId": "ad4156e9-bce1-11e2-82e6-6b6efEXAMPLE"
+          }
+        }
       }
-    }
     ]]
 
-    local connect_spy, request_spy = mock_http(true, { sts_response })
-    mock_ngx(1602859757) -- equals to Credentials.Expiration (2020-10-16T14:50:57Z) minus 100
+
+    local requests_params = mock_http({ wit_from_sts_response })
+    mock_ngx(1603577614) -- equals to Credentials.Expiration (2020-10-16T14:50:57Z) minus 100
+
+    local expected_wit_uri = 'https://sts.amazonaws.com?Action=AssumeRoleWithWebIdentity&DurationSeconds=3600&RoleArn=arn%3aaws%3aiam%3a111111111111%3arole%2frole%2dassociate%2dto%2dservice%2daccount&RoleSessionName=kong%2dplugin%2dlambda&Version=2011%2d06%2d15&WebIdentityToken=secret_token_stored_in_file'
+    local expected_options = {
+      headers = {
+        Accept = "application/json",
+        ["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
+      },
+      method = "GET",
+      ssl_verify = false
+    }
 
     local web_identity_token_provider = require("kong.plugins.aws-lambda.iam-web-identity-token-credentials")
     local web_identity_token_provider_instance = web_identity_token_provider.get_provider(config)
-    local expected_query_params = {
-      {
-        Action           = "AssumeRoleWithWebIdentity",
-        Version          = "2011-06-15",
-        RoleArn          = env_vars.AWS_ROLE_ARN,
-        DurationSeconds  = 3600,
-        WebIdentityToken = web_identity_token,
-        RoleSessionName  = config.aws_role_session_name
-      },
-      headers = {
-        Accept = "application/json"
-      },
-      method = "GET",
-      path = "/"
-    }
 
     -- WHEN
     local iam_role_credentials, err, duration = web_identity_token_provider_instance.fetch_credentials()
 
     -- THEN
     assert.is_nil(err)
-    assert.spy(connect_spy).was.called(1)
-    assert.spy(connect_spy).was.called_with(match._, "sts.eu-west-1.amazonaws.com", 443)
-    assert.spy(request_spy).was.called(1)
-    assert.spy(request_spy).was.called_with(match._, match.is_same(expected_query_params))
-    assert.equal("Access_Key_Id",                 iam_role_credentials.access_key)
-    assert.equal("Secret_Key",                    iam_role_credentials.secret_key)
-    assert.equal("Aws_Session_Token",             iam_role_credentials.session_token)
-    assert.equal(iam_role_credentials.expiration, 1602859857)
-    assert.equal(100,                             duration)
+    assert.equal(table.getn(requests_params), 1) -- luacheck: ignore
+    local wit_uri = requests_params[1][1]
+    local wit_query_params = requests_params[1][2]
+    assert.equal(expected_wit_uri,                                  wit_uri)
+    assert.same(wit_query_params,                                   expected_options)
+    assert.equal("ASgeIAIOSFODNN7EXAMPLE",                          iam_role_credentials.access_key)
+    assert.equal("wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY",       iam_role_credentials.secret_key)
+    assert.equal("AQoDYXdzEE0a8ANXXXXXXXXNO1ewxE5TijQyp+IEXAMPLE",  iam_role_credentials.session_token)
+    assert.equal(iam_role_credentials.expiration,                   1603577714)
+    assert.equal(100,                                               duration)
   end)
 
-  it("should fetch credentials for assume role with region from web identity token service", function()
+
+  it("should fetch credentials with region from web identity token service and assume role", function()
     -- GIVEN
     local env_vars = {
       AWS_WEB_IDENTITY_TOKEN_FILE = "/var/run/secrets/eks.amazonaws.com/serviceaccount/token",
-      AWS_ROLE_ARN = "arn:aws:iam:111111111111:role/roleAssociatedToServiceAccount"
+      AWS_ROLE_ARN = "arn:aws:iam:111111111111:role/role-associate-to-service-account"
     }
     mock_getEnv(env_vars)
     local config = {
       aws_region = "eu-west-1",
-      aws_role_session_name = "my-custom-session-name",
-      aws_cross_account_role = "arn:aws:iam:2222222:role/OtherRoleToAssume"
+      aws_role_session_name = "role-session-name",
+      aws_assume_role_arn = "role-to-assume"
     }
-    -- token store un the file AWS_WEB_IDENTITY_TOKEN_FILE
-    local web_identity_token = "y87oGKPznh0D6bEQZTSCzyoCtL_8S07pLpr0"
+
+    -- token store in the the file AWS_WEB_IDENTITY_TOKEN_FILE
+    local web_identity_token = "secret_token_stored_in_file"
     mock_io(web_identity_token)
 
-    local sts_response = [[
-    {
-      "AssumedRoleUser": {
-        "AssumedRoleId": "EAZDC3:kong-role",
-        "Arn": "arn:aws:sts::123456789012:assumed-role/blv-kong-trust-role"
-      },
-      "Audience": "sts.amazonaws.com",
-      "Provider": "arn:aws:iam::123456789012:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/ZDJ32JRD",
-      "SubjectFromWebIdentityToken": "system:serviceaccount:namespace:serviceAccountName",
-      "Credentials": {
-        "SecretAccessKey": "Secret_Key",
-        "SessionToken": "Aws_Session_Token",
-        "Expiration": "2020-10-16T14:50:57Z",
-        "AccessKeyId": "Access_Key_Id"
+    local wit_from_sts_response = [[
+      {
+        "AssumeRoleWithWebIdentityResponse": {
+          "AssumeRoleWithWebIdentityResult": {
+            "AssumedRoleUser": {
+              "Arn": "arn:aws:sts::111111111111:assumed-role/role-associate-to-service-account",
+              "AssumedRoleId": "AROACLKWSDQRAOEXAMPLE:TestAR"
+            },
+            "Audience": "sts.amazonaws.com",
+            "Credentials": {
+              "AccessKeyId": "ASgeIAIOSFODNN7EXAMPLE",
+              "Expiration": 1603577714,
+              "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY",
+              "SessionToken": "AQoDYXdzEE0a8ANXXXXXXXXNO1ewxE5TijQyp+IEXAMPLE"
+            },
+            "PackedPolicySize": null,
+            "Provider": "arn:aws:iam::111111111111:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/EAZCZAERACAZE",
+            "SubjectFromWebIdentityToken": "amzn1.account.AF6RHO7KZU5XRVQJGXK6HB56KR2A"
+          },
+          "ResponseMetadata": {
+            "RequestId": "ad4156e9-bce1-11e2-82e6-6b6efEXAMPLE"
+          }
+        }
       }
-    }
     ]]
     local assume_role_response = [[
     {
-        "AssumedRoleUser": {
-            "AssumedRoleId": "AROAZXNLQI:kong-api-gateway",
-            "Arn": "arn:aws:sts::22222222222:assumed-role/blv-kong-called-cross/kong-api-gateway"
+      "AssumeRoleResponse": {
+        "AssumeRoleResult": {
+          "AssumedRoleUser": {
+            "Arn": "arn:aws:sts::668763965404:assumed-role/role-to-assume/TestAR",
+            "AssumedRoleId": "ARO123EXAMPLE123:TestAR"
+          },
+          "Credentials": {
+            "AccessKeyId": "AR-ASIAIOSFODNN7EXAMPLE",
+            "Expiration": 1603573015,
+            "SecretAccessKey": "AR-JalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY",
+            "SessionToken": "AR-AQoDYXdzEPT//////////wEXAMPLEtc764bNrC9SAPBSM22wDOk4x4HIZ8j4FZTwdQWBA=="
+          },
+          "PackedPolicySize": null
         },
-        "Credentials": {
-            "SecretAccessKey": "Secret_Access_Key_Assume_Role",
-            "SessionToken": "Session_Token_Assume_Role",
-            "Expiration": "2020-10-21T13:41:41Z",
-            "AccessKeyId": "Access_Key_Assume_Role_Id"
+        "ResponseMetadata": {
+          "RequestId": "c6104cbe-af31-11e0-8154-cbc7ccf896c7"
         }
+      }
     }
     ]]
 
-    local connect_spy, request_spy, request_params = mock_http(true, { sts_response, assume_role_response })
-    mock_ngx(1603277701) -- equals to Credentials.Expiration (2020-10-16T14:50:57Z) minus 100
+
+    local captured_requests_params = mock_http({ wit_from_sts_response, assume_role_response })
+    mock_ngx(1603573005) -- equals to Credentials.Expiration (2020-10-16T14:50:57Z) minus 10
+
+    local expected_wit_uri = 'https://sts.eu-west-1.amazonaws.com?Action=AssumeRoleWithWebIdentity&DurationSeconds=3600&RoleArn=arn%3aaws%3aiam%3a111111111111%3arole%2frole%2dassociate%2dto%2dservice%2daccount&RoleSessionName=role%2dsession%2dname&Version=2011%2d06%2d15&WebIdentityToken=secret_token_stored_in_file'
+    local expected_wit_options = {
+      headers = {
+        Accept = "application/json",
+        ["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
+      },
+      method = "GET",
+      ssl_verify = false
+    }
+    local expected_ar_uri = 'https://sts.eu-west-1.amazonaws.com/?Action=AssumeRole&DurationSeconds=3600&RoleArn=role%2dto%2dassume&RoleSessionName=role%2dsession%2dname&Version=2011%2d06%2d15'
+    local expected_ar_options = {
+      headers = {
+        Accept = 'application/json',
+        Authorization = 'AWS4-HMAC-SHA256 Credential=ASgeIAIOSFODNN7EXAMPLE/20201024/eu-west-1/sts/aws4_request, SignedHeaders=accept;content-type;host;x-amz-date;x-amz-security-token, Signature=ba314f031b1ff28954d8dffe58dca17cb57f412ba522bc87bbee732ddd8e1aad',
+        ["Content-Type"] = 'application/x-www-form-urlencoded; charset=utf-8',
+        Host = 'sts.eu-west-1.amazonaws.com',
+        ["X-Amz-Date"] = '20201024T220547Z',
+        ["X-Amz-Security-Token"] = 'AQoDYXdzEE0a8ANXXXXXXXXNO1ewxE5TijQyp+IEXAMPLE'
+      },
+      method = 'GET',
+      ssl_verify = false
+    }
 
     local web_identity_token_provider = require("kong.plugins.aws-lambda.iam-web-identity-token-credentials")
     local web_identity_token_provider_instance = web_identity_token_provider.get_provider(config)
-    local expected_query_params_to_sts = {
-      {
-        Action           = "AssumeRoleWithWebIdentity",
-        Version          = "2011-06-15",
-        RoleArn          = env_vars.AWS_ROLE_ARN,
-        DurationSeconds  = 3600,
-        WebIdentityToken = web_identity_token,
-        RoleSessionName  = config.aws_role_session_name
-      },
-      headers = {
-        Accept = "application/json"
-      },
-      method = "GET",
-      path = "/"
-    }
-    local expected_query_params_to_assume_role = {
-      headers = {
-        Accept = "application/json",
-        Authorization = "AWS4-HMAC-SHA256 Credential=Access_Key_Id/20201021/eu-west-1/sts/aws4_request, SignedHeaders=accept;content-type;host;x-amz-date;x-amz-security-token, Signature=ebae364791578ff30cb559117a31eb6ab9d74264cea9b9a1ae4fe3288f6b2911",
-        ["Content-Type"] = "application/json",
-        Host = "sts.eu-west-1.amazonaws.com",
-        ["X-Amz-Date"] = "20201021T183132Z"
-      },
-      method = "POST",
-      path = "https://sts.eu-west-1.amazonaws.com/?Version=2011%2d06%2d15&RoleArn=arn%3aaws%3aiam%3a2222222%3arole%2fOtherRoleToAssume&DurationSeconds=3600&RoleSessionName=my%2dcustom%2dsession%2dname&Action=AssumeRole"
-    }
 
     -- WHEN
     local iam_role_credentials, err, duration = web_identity_token_provider_instance.fetch_credentials()
 
     -- THEN
     assert.is_nil(err)
+    assert.equal(table.getn(captured_requests_params), 2) -- luacheck: ignore
 
-    assert.spy(connect_spy).was.called(1)
-    assert.spy(connect_spy).was.called_with(match._, "sts.eu-west-1.amazonaws.com", 443)
+    local wit_uri = captured_requests_params[1][1]
+    local wit_query_params = captured_requests_params[1][2]
+    assert.equal(expected_wit_uri, wit_uri)
+    assert.same(expected_wit_options, wit_query_params)
 
-    assert.spy(request_spy).was.called(2)
+    local ar_uri = captured_requests_params[2][1]
+    local ar_query_params = captured_requests_params[2][2]
+    assert.equal(expected_ar_uri, ar_uri)
+    assert.equal(expected_ar_options.method, ar_query_params.method)
+    assert.same(expected_ar_options.ssl_verify, ar_query_params.ssl_verify)
+    assert.same(expected_ar_options.headers["X-Amz-Security-Token"], ar_query_params.headers["X-Amz-Security-Token"])
+    assert.is_true(assert_same_sign(expected_ar_options.headers.Authorization, ar_query_params.headers.Authorization))
+    assert.equal("AR-ASIAIOSFODNN7EXAMPLE",                                                     iam_role_credentials.access_key)
+    assert.equal("AR-JalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY",                                 iam_role_credentials.secret_key)
+    assert.equal("AR-AQoDYXdzEPT//////////wEXAMPLEtc764bNrC9SAPBSM22wDOk4x4HIZ8j4FZTwdQWBA==",  iam_role_credentials.session_token)
+    assert.equal(iam_role_credentials.expiration,                                               1603573015)
+    assert.equal(10,                                                                            duration)
 
-    -- check call assumeRoleWithWebIdentity
-    local param_request_assume_role_with_wi = request_params[1]
-    assert.equal(expected_query_params_to_sts.Action,           param_request_assume_role_with_wi.Action)
-    assert.equal(expected_query_params_to_sts.Version,          param_request_assume_role_with_wi.Version)
-    assert.equal(expected_query_params_to_sts.RoleArn,          param_request_assume_role_with_wi.RoleArn)
-    assert.equal(expected_query_params_to_sts.DurationSeconds,  param_request_assume_role_with_wi.DurationSeconds)
-    assert.equal(expected_query_params_to_sts.WebIdentityToken, param_request_assume_role_with_wi.WebIdentityToken)
-    assert.equal(expected_query_params_to_sts.RoleSessionName,  param_request_assume_role_with_wi.RoleSessionName)
-
-    -- check call assumeRole
-    local param_request_assume_role = request_params[2]
-    assert.equal(expected_query_params_to_assume_role.headers.Accept,                     param_request_assume_role.headers.Accept)
-    assert_same_sign(expected_query_params_to_assume_role.headers.Authorization,  param_request_assume_role.headers.Authorization)
-    assert.equal(expected_query_params_to_assume_role.headers.Host,                       param_request_assume_role.headers.Host)
-    assert.equal(expected_query_params_to_assume_role.method,                             param_request_assume_role.method)
-    assert.equal(expected_query_params_to_assume_role.path,                               param_request_assume_role.path)
-
-    -- check return
-    assert.equal("Access_Key_Assume_Role_Id",     iam_role_credentials.access_key)
-    assert.equal("Secret_Access_Key_Assume_Role", iam_role_credentials.secret_key)
-    assert.equal("Session_Token_Assume_Role",     iam_role_credentials.session_token)
-    assert.equal(1603287701,                      iam_role_credentials.expiration)
-    assert.equal(10000,                           duration)
   end)
+
 
 end)
