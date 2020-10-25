@@ -42,6 +42,14 @@ return {
           type = "string",
           required = true,
         } },
+        { aws_role_session_name = {
+          type = "string",
+          encrypted = ENCRYPTED,
+        } },
+        { aws_assume_role_arn = {
+          type = "string",
+          encrypted = ENCRYPTED,
+        } },
         { qualifier = {
           type = "string",
         } },
