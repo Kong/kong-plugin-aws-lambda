@@ -14,7 +14,7 @@
 
 ## aws-lambda 3.6.1 22-Oct-2020
 
-- feat: adding support to use service account role in EKS and also assume a give role
+- feat: adding support to use service account role in EKS and also assume a given role
 
 ## aws-lambda 3.5.1 6-Okt-2020
 

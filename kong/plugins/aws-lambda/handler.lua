@@ -185,11 +185,11 @@ function AWSLambdaHandler:access(conf)
 
   if not conf.aws_key then
     -- retrieve credentials using the first well configured providers
-    local fetched_credentials
+    local fetch_credentials
     for _, credential_provider in ipairs(credential_providers) do
       local credential_provider_instance = credential_provider.get_provider(conf)
       if credential_provider_instance then
-        fetched_credentials = credential_provider_instance.fetch_credentials()
+        fetch_credentials = credential_provider_instance.fetch_credentials
         break
       end
     end
@@ -198,7 +198,7 @@ function AWSLambdaHandler:access(conf)
     local iam_role_credentials = kong.cache:get(
       IAM_CREDENTIALS_CACHE_KEY,
       nil,
-      fetched_credentials
+      fetch_credentials
     )
 
     if not iam_role_credentials then
