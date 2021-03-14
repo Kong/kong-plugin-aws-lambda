@@ -44,18 +44,16 @@ local max_idle_timeout = 3
 local function make_request(http, config)
   -- create and connect the client
   local client = http.new()
-  local ok, err = client:connect_better {
+  local ok, err = client:connect {
     scheme = config.scheme,
     host = config.host,
     port = config.scheme == "https" and 443 or 80,
-    ssl = config.scheme == "https" and {
-      server_name = config.host,
-      verify = false,
-    },
-    proxy = config.proxy_url and {
-      uri = config.proxy_url,
-      authorization = config.authorization,
-    }
+    ssl_verify = false,
+    ssl_server_name = config.host,
+    proxy_opts = config.proxy_url and {
+      https_proxy = config.proxy_url,
+      https_proxy_authorization = config.authorization,
+    } or nil
   }
   assert.is_nil(err)
   assert.truthy(ok)
@@ -105,8 +103,8 @@ describe("#proxy #squid", function()
 
   local http
   before_each(function()
-    package.loaded["kong.plugins.aws-lambda.http.connect-better"] = nil
-    http = require "kong.plugins.aws-lambda.http.connect-better"
+    package.loaded["resty.http"] = nil
+    http = require "resty.http"
   end)
 
   lazy_teardown(function()
@@ -127,8 +125,8 @@ describe("#keepalive #squid", function()
 
   local http
   before_each(function()
-    package.loaded["kong.plugins.aws-lambda.http.connect-better"] = nil
-    http = require "kong.plugins.aws-lambda.http.connect-better"
+    package.loaded["resty.http"] = nil
+    http = require "resty.http"
   end)
 
   lazy_teardown(function()

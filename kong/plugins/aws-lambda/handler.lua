@@ -2,7 +2,7 @@
 
 local aws_v4 = require "kong.plugins.aws-lambda.v4"
 local aws_serializer = require "kong.plugins.aws-lambda.aws-serializer"
-local http = require "kong.plugins.aws-lambda.http.connect-better"
+local http = require "resty.http"
 local cjson = require "cjson.safe"
 local meta = require "kong.meta"
 local constants = require "kong.constants"
@@ -230,14 +230,14 @@ function AWSLambdaHandler:access(conf)
   local kong_wait_time_start = get_now()
 
   local ok
-  ok, err = client:connect_better {
+  ok, err = client:connect {
     scheme = "https",
     host = host,
     port = port,
-    ssl = { verify = false },
-    proxy = conf.proxy_url and {
-      uri = conf.proxy_url,
-    }
+    ssl_verify = false,
+    proxy_opts = conf.proxy_url and {
+      https_proxy = conf.proxy_url,
+    } or nil
   }
   if not ok then
     kong.log.err(err)
