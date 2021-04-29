@@ -114,6 +114,10 @@ local function fetchCredentials()
   return result, nil, result.expiration - ngx_now()
 end
 
+local function fetchRegion()
+  return nil, "Not implemented"
+end
+
 local function fetchCredentialsLogged()
   -- wrapper to log any errors
   local creds, err, ttl = fetchCredentials()
@@ -123,7 +127,17 @@ local function fetchCredentialsLogged()
   kong.log.err(err)
 end
 
+local function fetchRegionLogged()
+  -- wrapper to log any errors
+  local region, err = fetchRegion()
+  if region then
+    return region, err
+  end
+  kong.log.err(err)
+end
+
 return {
   configured = not not ECSFullUri, -- force to boolean
   fetchCredentials = fetchCredentialsLogged,
+  fetchRegion = fetchRegionLogged,
 }
