@@ -121,8 +121,11 @@ local AWSLambdaHandler = {}
 function AWSLambdaHandler:access(conf)
   local upstream_body = kong.table.new(0, 6)
   local var = ngx.var
-  if not conf.host and not conf.aws_region and not kong_region then
-    kong_region = fetch_region()
+  if not conf.host and not conf.aws_region then
+    if not kong_region then
+      kong_region = fetch_region()
+    end
+    conf.aws_region = kong_region
   end
 
   if conf.awsgateway_compatible then
@@ -177,7 +180,7 @@ function AWSLambdaHandler:access(conf)
     " to forward request values: ", err)
   end
 
-  local host = conf.host or fmt("lambda.%s.amazonaws.com", conf.aws_region or kong_region)
+  local host = conf.host or fmt("lambda.%s.amazonaws.com", conf.aws_region)
   local path = fmt("/2015-03-31/functions/%s/invocations",
                             conf.function_name)
   local port = conf.port or AWS_PORT
