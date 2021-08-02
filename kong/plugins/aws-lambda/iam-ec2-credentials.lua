@@ -80,11 +80,50 @@ local function fetch_ec2_credentials()
   return result, nil, result.expiration - ngx_now()
 end
 
+local function fetch_ec2_region()
+  local client = http.new()
+  client:set_timeout(METADATA_SERVICE_REQUEST_TIMEOUT)
+
+  local ok, err = client:connect(METADATA_SERVICE_HOST, METADATA_SERVICE_PORT)
+
+  if not ok then
+    return nil, "Could not connect to metadata service: " .. tostring(err)
+  end
+
+  local identity_request_res, err = client:request {
+    method = "GET",
+    path   = "/latest/dynamic/instance-identity/document/",
+  }
+
+  if not identity_request_res then
+    return nil, "Could not fetch role name from metadata service: " .. tostring(err)
+  end
+
+  if identity_request_res.status ~= 200 then
+    return nil, "Fetching instance identity from metadata service returned status code " ..
+                identity_request_res.status .. " with body " .. identity_request_res.body
+  end
+
+  local identity_data = json.decode(identity_request_res:read_body())
+
+  return identity_data.region, nil
+end
+
+
 local function fetchCredentialsLogged()
   -- wrapper to log any errors
   local creds, err, ttl = fetch_ec2_credentials()
   if creds then
     return creds, err, ttl
+  end
+  kong.log.err(err)
+end
+
+local function fetchRegionLogged()
+  -- wrapper to log any errors
+  local region, err = fetch_ec2_region()
+  if region then
+    return region, err
   end
   kong.log.err(err)
 end
@@ -96,5 +135,6 @@ return {
   -- we're just using the EC2 fetcher as the final fallback.
   configured = true,
   fetchCredentials = fetchCredentialsLogged,
+  fetchRegion = fetchRegionLogged,
 }
 

@@ -16,6 +16,7 @@ local AWS_PORT = 443
 
 
 local fetch_credentials
+local fetch_region
 do
   local credential_sources = {
     require "kong.plugins.aws-lambda.iam-ecs-credentials",
@@ -26,10 +27,13 @@ do
   for _, credential_source in ipairs(credential_sources) do
     if credential_source.configured then
       fetch_credentials = credential_source.fetchCredentials
+      fetch_region = credential_source.fetchRegion
       break
     end
   end
 end
+
+local kong_region
 
 
 local tostring             = tostring
@@ -124,6 +128,12 @@ local AWSLambdaHandler = {}
 function AWSLambdaHandler:access(conf)
   local upstream_body = kong.table.new(0, 6)
   local var = ngx.var
+  if not conf.host and not conf.aws_region then
+    if not kong_region then
+      kong_region = fetch_region()
+    end
+    conf.aws_region = kong_region
+  end
 
   if conf.awsgateway_compatible then
     upstream_body = aws_serializer(ngx.ctx, conf)

@@ -1,4 +1,6 @@
 local typedefs = require "kong.db.schema.typedefs"
+local null     = ngx.null
+
 
 local function keyring_enabled()
   local ok, enabled = pcall(function()
@@ -7,6 +9,18 @@ local function keyring_enabled()
 
   return ok and enabled or nil
 end
+
+local function is_nonempty(value)
+  if value == nil
+     or value == null
+     or (type(value) == "table" and not next(value))
+     or (type(value) == "string" and value == "") then
+    return false
+  end
+
+  return true
+end
+
 
 -- symmetrically encrypt IAM access keys, if configured. this is available
 -- in Kong Enterprise: https://docs.konghq.com/enterprise/1.3-x/db-encryption/
@@ -106,6 +120,15 @@ return {
   entity_checks = {
     { mutually_required = { "config.aws_key", "config.aws_secret" } },
     { mutually_required = { "config.proxy_scheme", "config.proxy_url" } },
-    { only_one_of = { "config.aws_region", "config.host" } },
+    { custom_entity_check = {
+      field_sources = { "config" },
+      fn = function(entity)
+        local config = entity.config
+        if is_nonempty(config.host) and is_nonempty(config.aws_region) then
+          return nil, "At least one of 'config.aws_region', 'config.host' should not be set"
+        end
+        return true
+      end,
+    } },
   }
 }

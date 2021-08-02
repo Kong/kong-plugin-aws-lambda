@@ -2,7 +2,7 @@ require "spec.helpers"
 
 describe("[AWS Lambda] iam-ec2", function()
 
-  local fetch_ec2, http_responses
+  local fetch_ec2, fetch_region, http_responses
 
   before_each(function()
     package.loaded["kong.plugins.aws-lambda.iam-ec2-credentials"] = nil
@@ -28,6 +28,7 @@ describe("[AWS Lambda] iam-ec2", function()
       }
     end
     fetch_ec2 = require("kong.plugins.aws-lambda.iam-ec2-credentials").fetchCredentials
+    fetch_region = require("kong.plugins.aws-lambda.iam-ec2-credentials").fetchRegion
   end)
 
   after_each(function()
@@ -56,5 +57,33 @@ describe("[AWS Lambda] iam-ec2", function()
     assert.equal("the Big Secret", iam_role_credentials.secret_key)
     assert.equal("the Token of Appreciation", iam_role_credentials.session_token)
     assert.equal(1552424170, iam_role_credentials.expiration)
+  end)
+  it("should fetch region metadata service", function()
+    http_responses = {
+      [[
+{
+  "accountId" : "832462046160",
+  "architecture" : "x86_64",
+  "availabilityZone" : "eu-west-3b",
+  "billingProducts" : null,
+  "devpayProductCodes" : null,
+  "marketplaceProductCodes" : null,
+  "imageId" : "ami-01b209ce2c9441231",
+  "instanceId" : "i-04c6019ed0f4e7ca7",
+  "instanceType" : "m5d.2xlarge",
+  "kernelId" : null,
+  "pendingTime" : "2021-04-29T09:53:04Z",
+  "privateIp" : "10.196.93.32",
+  "ramdiskId" : null,
+  "region" : "eu-west-3",
+  "version" : "2017-09-30"
+}
+]]
+    }
+
+    local region, err = fetch_region()
+
+    assert.is_nil(err)
+    assert.equal("eu-west-3", region)
   end)
 end)
