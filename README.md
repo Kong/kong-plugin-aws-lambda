@@ -1,3 +1,6 @@
+# :warning: **NOTE**: this plugin has been moved into https://github.com/Kong/kong. Please 
+open issues and PRs in that repository.
+
 [![Build Status][badge-travis-image]][badge-travis-url]
 
 # kong-plugin-aws-lambda
